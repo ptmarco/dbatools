@@ -1,3 +1,18 @@
+IF OBJECT_ID('dbo.sp_RebuildHeaps') IS  NULL
+    EXEC ('CREATE PROCEDURE dbo.sp_RebuildHeaps AS RETURN 0;');
+GO
+
+ALTER PROCEDURE dbo.sp_RebuildHeaps
+/* User Parameters */
+	@DatabaseName SYSNAME = NULL,
+	@fragmentation_threshold FLOAT = 30,
+	@forwarded_record_count_threshold BIGINT = 0,
+	@ignore_forwarded_record_count_threshold BIT = 0, -- Rebuild even if there are no fowarded_records
+	@max_heap_size_mb INT = 1000,	-- Threshold to HEAP Rebuild, default 1GB
+	@logToCommandLog BIT = 1,
+	@Rebuild BIT = 0 -- 1 Will REBUILD all HEAPS with fragmentation > @fragmentation_threshold
+AS
+BEGIN
 /*
 ====================================================================================================================
 Author:			Marco Assis
@@ -50,40 +65,7 @@ xx/12/23		Marco Assis		Initial Build
 05/02/24		Marco Assis		Fix missing schema
 05/02/24		Marco Assis		Add thrshold table size to prevent rebuilding very large tables
 ====================================================================================================================
-*/
-
-USE dba_database
-GO
-
-IF OBJECT_ID('dbo.sp_RebuildHeaps') IS  NULL
-    EXEC ('CREATE PROCEDURE dbo.sp_RebuildHeaps AS RETURN 0;');
-GO
-
-ALTER PROCEDURE dbo.sp_RebuildHeaps
-/* User Parameters */
-	@DatabaseName SYSNAME = NULL,
-	@fragmentation_threshold FLOAT = 30,
-	@forwarded_record_count_threshold BIGINT = 0,
-	@ignore_forwarded_record_count_threshold BIT = 0, -- Rebuild even if there are no fowarded_records
-	@max_heap_size_mb INT = 1000,	-- Threshold to HEAP Rebuild, default 1GB
-	@logToCommandLog BIT = 1,
-	@Rebuild BIT = 0 -- 1 Will REBUILD all HEAPS with fragmentation > @fragmentation_threshold
-AS
-BEGIN
-/*
-====================================================================================================================
-Author:			Marco Assis
-Create date:	01/2024
-Description:	Rebuild HEAPS with high	forwarded records
-====================================================================================================================
-Change History
-Date   			Author       	Description	
-xx/12/23		Marco Assis		Initial Build
-05/02/24		Marco Assis		Fix missing schema
-05/02/24		Marco Assis		Add thrshold table size to prevent rebuilding very large tables
-====================================================================================================================
-*/
-IF @DatabaseName IS NULL SELECT @DatabaseName = DB_NAME();
+*/IF @DatabaseName IS NULL SELECT @DatabaseName = DB_NAME();
 DECLARE @tsql NVARCHAR(MAX) = N'USE ' + QUOTENAME(@DatabaseName) + ';' + CHAR(13) + 
 N'SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
@@ -113,9 +95,9 @@ DECLARE @sql NVARCHAR(MAX),
 		@EndTime DATETIME2;
 
 -- Create Results temp tables
-IF OBJECT_ID(N''tempdb.dbo.##heaps_temp'',''U'') IS NOT NULL
+IF OBJECT_ID(N'tempdb.dbo.##heaps_temp','U') IS NOT NULL
  DROP table ##heaps_temp;
-IF OBJECT_ID(N''tempdb.dbo.#heaps'',''U'') IS NOT NULL
+IF OBJECT_ID(N'tempdb.dbo.#heaps','U') IS NOT NULL
  DROP table #heaps;
 
 SELECT 
@@ -153,9 +135,9 @@ SELECT ##heaps_temp.*,
 	avg_fragmentation_in_percent > @fragmentation_threshold THEN 
 		CASE WHEN 
 		(IPS.page_count/128.0) <= @max_heap_size_mb THEN 
-			''ALTER TABLE '' + quotename(##heaps_temp.[schema]) + ''.'' + quotename(##heaps_temp.[table]) + '' REBUILD;'' 
+			'ALTER TABLE ' + quotename(##heaps_temp.[schema]) + '.' + quotename(##heaps_temp.[table]) + ' REBUILD;'
 		ELSE
-			''-- ALTER TABLE '' + quotename(##heaps_temp.[schema]) + ''.'' + quotename(##heaps_temp.[table]) + '' REBUILD;'' 
+			''-- ALTER TABLE ' + quotename(##heaps_temp.[schema]) + '.' + quotename(##heaps_temp.[table]) + ' REBUILD;'
 		END
   END [Rebuild]
 INTO #heaps
@@ -196,9 +178,9 @@ IF @Rebuild = 1
 					@DatabaseName
 					,@SchemaName
 					,@ObjectName
-					,''H''
+					,'H'
 					,@sql
-					,''REBUILD HEAPS''
+					,'REBUILD HEAPS'
 					,@StartTime
 					,@EndTime
 					,0

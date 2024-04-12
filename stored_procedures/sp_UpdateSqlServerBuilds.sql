@@ -1,3 +1,9 @@
+IF OBJECT_ID('dbo.sp_UpdateSqlServerBuilds','P') IS NULL
+    EXEC('CREATE PROCEDURE dbo.sp_UpdateSqlServerBuilds AS RETURN 0;');
+GO
+
+ALTER PROCEDURE dbo.sp_UpdateSqlServerBuilds AS
+BEGIN
 /*
 ====================================================================================================================
 Author:			Marco Assis
@@ -17,25 +23,21 @@ Date   		Author       	Description
 */
 
 -- Enable "Ole Automation Procedures" configuration enabled on SQL Server.
-CREATE TABLE ##undo (undo BIT);
+DECLARE @undo BIT = 0;
 IF (SELECT value FROM sys.configurations WHERE name = 'Ole Automation Procedures') != 1
 BEGIN
     EXEC sp_configure N'show advanced options', 1;
     RECONFIGURE;
     EXEC sp_configure N'Ole Automation Procedures', 1;
     RECONFIGURE;
-    INSERT INTO ##undo (undo) VALUES (1)
+    SELECT @undo = 1;
 END
-ELSE 
-    INSERT INTO ##undo (undo) VALUES (0);
-GO
 
 -- Clean Up
 IF OBJECT_ID('dbo.SqlServerBuild','U') IS NULL
     DROP TABLE SqlServerBuilds;
 IF OBJECT_ID('dbo.SqlServerRelease','U') IS NULL
     DROP TABLE SqlServerBuilds;
-GO
 
 -- SqlServerBuilds
 SET NOCOUNT ON;
@@ -72,7 +74,7 @@ DECLARE @Json NVARCHAR(MAX) = SUBSTRING(@JsonP, 48, DATALENGTH(@JsonP) - 48 - 1)
 
 -- Transform JSON into a table-like dataset
 SELECT *
-INTO #SqlServerRelease
+INTO dbo.SqlServerRelease
 FROM OPENJSON(@Json, '$.table.rows')
 WITH (
   Release                    NVARCHAR(MAX) '$.c[0].v',
@@ -89,14 +91,14 @@ WITH (
 );
 
 SELECT *
-FROM #SqlServerRelease;
-GO
+FROM dbo.SqlServerRelease;
 
 -- SqlServerBuilds
 SET NOCOUNT ON;
-DECLARE @Url NVARCHAR(2048) = N'https://docs.google.com/spreadsheets/d/16Ymdz80xlCzb6CwRFVokwo0onkofVYFoSkc7mYe6pgw/gviz/tq?tqx=out:json';
-DECLARE @obj INT, @hr INT, @status INT;
-DECLARE @Response TABLE(ResponseText NVARCHAR(MAX) NULL);
+SELECT @Url = N'https://docs.google.com/spreadsheets/d/16Ymdz80xlCzb6CwRFVokwo0onkofVYFoSkc7mYe6pgw/gviz/tq?tqx=out:json';
+--DECLARE @Url NVARCHAR(2048) = N'https://docs.google.com/spreadsheets/d/16Ymdz80xlCzb6CwRFVokwo0onkofVYFoSkc7mYe6pgw/gviz/tq?tqx=out:json';
+--DECLARE @obj INT, @hr INT, @status INT;
+--DECLARE @Response TABLE(ResponseText NVARCHAR(MAX) NULL);
 
 EXEC @hr = sp_OACreate 'MSXML2.XMLHTTP', @obj OUT;
 IF ISNULL(@hr, 0) <> 0       THROW 50000, 'sp_OACreate error', 0;
@@ -119,15 +121,17 @@ IF ISNULL(@hr, 0) <> 0       THROW 50000, 'sp_OAGetProperty responseText error',
 EXEC @hr = sp_OADestroy @obj;
 IF ISNULL(@hr, 0) <> 0       THROW 50000, 'sp_OADestroy error', 0;
 
-DECLARE @JsonP NVARCHAR(MAX) = (SELECT ResponseText FROM @Response);
+--DECLARE @JsonP NVARCHAR(MAX) = (SELECT ResponseText FROM @Response);
+SELECT @JsonP = (SELECT ResponseText FROM @Response);
 IF ISNULL(@JsonP, N'') = N'' THROW 50000, 'Empty response', 0;
 
 -- Now we have JSON-P and we need to clear the text at the beginning '/*O_o*/<NewLine>google.visualization.Query.setResponse(' and end ');'.
-DECLARE @Json NVARCHAR(MAX) = SUBSTRING(@JsonP, 48, DATALENGTH(@JsonP) - 48 - 1);
+--DECLARE @Json NVARCHAR(MAX) = SUBSTRING(@JsonP, 48, DATALENGTH(@JsonP) - 48 - 1);
+SELECT @Json = SUBSTRING(@JsonP, 48, DATALENGTH(@JsonP) - 48 - 1);
 
 -- Transform JSON into a table-like dataset
 SELECT *
-INTO #SqlServerBuilds
+INTO dbo.SqlServerBuilds
 FROM OPENJSON(@Json, '$.table.rows')
 WITH (
   SQLServer   NVARCHAR(MAX) '$.c[0].v',
@@ -147,15 +151,16 @@ WITH (
 );
 
 SELECT *
-FROM #SqlServerBuilds;
-GO
+FROM dbo.SqlServerBuilds;
 
 -- Disable "Ole Automation Procedures" configuration enabled on SQL Server.
-IF (SELECT TOP 1 undo FROM ##undo) = 1
+IF @undo = 1
 BEGIN    
     EXEC sp_configure N'show advanced options', 1;
     RECONFIGURE;
     EXEC sp_configure N'Ole Automation Procedures', 1;
     RECONFIGURE;
+END
+
 END
 GO
