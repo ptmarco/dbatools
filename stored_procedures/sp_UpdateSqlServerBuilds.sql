@@ -9,16 +9,17 @@ BEGIN
 Author:			Marco Assis
 Create date:	04/2024
 Description:	Build SQL Releases & Builds tables from updated info @ https://sqlserverbuilds.blogspot.com
-Notes:			
-
-Parameters:
-
-Examples:
-
+Notes:			https://sqlserverbuilds.blogspot.com/2019/08/how-to-get-data-programmatically.html
+Parameters:     
+Examples:       EXEC dbo.sp_dbo.sp_UpdateSqlServerBuilds;
 ====================================================================================================================
 Change History
 Date   		Author       	Description	
-
+xx/04/24    Marco Assis     Initial Build
+====================================================================================================================
+Copyright (c) 2024 Marco Assis
+<marco.assis@gmail.com> 
+For all my (currently) shared (MIT Licensing) scripts : https://github.com/ptmarco/dbatools
 ====================================================================================================================
 */
 
@@ -34,9 +35,9 @@ BEGIN
 END
 
 -- Clean Up
-IF OBJECT_ID('dbo.SqlServerBuild','U') IS NULL
+IF OBJECT_ID('dbo.SqlServerBuild','U') IS NOT NULL
     DROP TABLE SqlServerBuilds;
-IF OBJECT_ID('dbo.SqlServerRelease','U') IS NULL
+IF OBJECT_ID('dbo.SqlServerRelease','U') IS NOT NULL
     DROP TABLE SqlServerBuilds;
 
 -- SqlServerBuilds
