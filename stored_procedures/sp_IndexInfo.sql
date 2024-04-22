@@ -1,9 +1,34 @@
-CREATE OR ALTER PROCEDURE dbo.sp_IndexInfo
+IF OBJECT_ID('dbo.sp_IndexInfo') IS NULL
+  EXEC ('CREATE PROCEDURE dbo.sp_IndexInfo AS RETURN 0;');
+GO
+
+ALTER PROCEDURE dbo.sp_IndexInfo
 	@TableName SYSNAME		=	'%'
 	,@SchemaName SYSNAME	= '%'
 	,@StatsLevel SYSNAME	= 'SAMPLED'
 AS
 BEGIN
+/*
+====================================================================================================================
+Author:			Marco Assis
+Create date:	03/2024
+Description:	Returns Detaild Index Information
+====================================================================================================================
+Change History
+Date   			Author       	Description	
+
+====================================================================================================================
+Example:
+*/
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET STATISTICS IO OFF;
+SET STATISTICS TIME OFF;
+SET NOCOUNT ON;
 
 SELECT 
 	t.object_id, 

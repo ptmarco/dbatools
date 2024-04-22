@@ -1,8 +1,8 @@
-SET ANSI_NULLS ON
-SET QUOTED_IDENTIFIER ON
+IF OBJECT_ID('dbo.sp_RebuildHeaps_AzureSqlDB') IS NULL
+  EXEC ('CREATE PROCEDURE dbo.sp_RebuildHeaps_AzureSqlDB AS RETURN 0;');
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[sp_RebuildHeaps_AzureSqlDB]
+ALTER PROCEDURE [dbo].[sp_RebuildHeaps_AzureSqlDB]
 /* User Parameters */
 	@fragmentation_threshold FLOAT = 30,
 	@forwarded_record_count_threshold BIGINT = 0,
@@ -69,8 +69,6 @@ IF @log = 1
 		,StartDate DATETIME2
 		,EndDate DATETIME2
 );
-
-
 
 SELECT 
  SCH.name [schema], 
@@ -181,5 +179,3 @@ DROP TABLE #heaps
 DROP TABLE #log
 
 END
-
-GO
