@@ -6,6 +6,7 @@ ALTER PROCEDURE dbo.sp_IndexInfo
 	@TableName SYSNAME		=	'%'
 	,@SchemaName SYSNAME	= '%'
 	,@StatsLevel SYSNAME	= 'SAMPLED'
+--WITH ENCRYPTION
 AS
 BEGIN
 /*

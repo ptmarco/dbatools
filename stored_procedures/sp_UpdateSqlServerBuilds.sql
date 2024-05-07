@@ -2,7 +2,9 @@ IF OBJECT_ID('dbo.sp_UpdateSqlServerBuilds','P') IS NULL
     EXEC('CREATE PROCEDURE dbo.sp_UpdateSqlServerBuilds AS RETURN 0;');
 GO
 
-ALTER PROCEDURE dbo.sp_UpdateSqlServerBuilds AS
+ALTER PROCEDURE dbo.sp_UpdateSqlServerBuilds 
+--WITH ENCRYPTION
+AS
 BEGIN
 /*
 ====================================================================================================================

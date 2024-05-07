@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[sp_RebuildHeaps_AzureSqlDB]
 	@max_heap_size_mb INT = 1000,	-- Threshold to HEAP Rebuild, default 1GB
 	@log BIT = 1,
 	@Rebuild BIT = 0 -- 1 Will REBUILD all HEAPS with fragmentation > @fragmentation_threshold
+--WITH ENCRYPTION
 AS
 BEGIN
 /*
