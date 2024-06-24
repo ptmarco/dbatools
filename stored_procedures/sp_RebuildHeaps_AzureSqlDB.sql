@@ -1,6 +1,11 @@
+SET NOEXEC OFF
+
 IF OBJECT_ID('dbo.sp_RebuildHeaps_AzureSqlDB') IS NULL
   EXEC ('CREATE PROCEDURE dbo.sp_RebuildHeaps_AzureSqlDB AS RETURN 0;');
 GO
+
+IF SELECT SERVERPROPERTY('EngineEdition') != 5
+    SET NOEXEC ON;
 
 ALTER PROCEDURE [dbo].[sp_RebuildHeaps_AzureSqlDB]
 /* User Parameters */
@@ -180,3 +185,7 @@ DROP TABLE #heaps
 DROP TABLE #log
 
 END
+GO
+
+SET NOEXEC OFF
+GO
