@@ -35,7 +35,7 @@ ORDER BY
 		--cntr_value desc
 
 
--- per Database (point-in-time)
+-- Last 24h per Database (point-in-time)
 SELECT	perf.instance_name
 		, perf.object_name
 		, perf.counter_name
@@ -51,11 +51,12 @@ FROM	Baseline.perfmon perf
 			ON t.cntr_type = perf.cntr_type
 WHERE	1=1
 	AND sysdate > dateadd(minute,24*-60,getdate())
-	AND object_name		LIKE N'%Database%'
-	AND object_name		NOT LIKE N'% Replica'
-	AND instance_name	LIKE N'IAF'
-	AND counter_name	IN   (N'Active Transactions','Percent Log Used','Transactions/sec','')
-	AND perf.cntr_value !=	 0
+	AND object_name		LIKE        N'%Database%'
+	AND object_name		NOT LIKE    N'% Replica'
+	--AND instance_name	LIKE N'IAF'
+	AND instance_name	LIKE	    N'_Total'
+    AND counter_name	IN          (N'Active Transactions','Percent Log Used','Transactions/sec','')
+	AND perf.cntr_value !=          0
 ORDER BY
 		instance_name, counter_name, sysdate desc
 
@@ -81,7 +82,7 @@ WHERE	1=1
 	--AND object_name		LIKE		N'%Database%'
 	--AND object_name		NOT LIKE	N'% Replica'
 	--AND instance_name	LIKE		N'IAF'
-	AND (instance_name	LIKE		N'_Total' or instance_name = N'')
+	AND instance_name	LIKE		N'_Total' --or instance_name = N'')
 	--AND counter_name	IN			(N'Active Transactions','Percent Log Used','Transactions/sec','')
 GROUP BY
 	perf.instance_name
@@ -167,9 +168,10 @@ BEGIN
     ALTER TABLE Baseline.perfmon REBUILD PARTITION = ALL
         WITH (DATA_COMPRESSION = PAGE);
     -- Create Indexes
-    CREATE CLUSTERED INDEX  PK_sysdate          ON Baseline.perfmon (sysdate);
-    CREATE INDEX            IX_object_counter   ON Baseline.perfmon (object_name, counter_name) 
-        INCLUDE (instance_name, cntr_type, cntr_value, previous, delta);
+    CREATE CLUSTERED INDEX  PK_sysdate                  ON Baseline.perfmon (sysdate);
+    CREATE NONCLUSTERED INDEX IX_sysdate_object
+    ON [Baseline].[perfmon] ([sysdate],[object_name])
+        INCLUDE ([counter_name],[instance_name],[cntr_type],[cntr_value])
 END
 
 IF OBJECT_ID(N'Baseline.cntr_type',N'U') IS NULL

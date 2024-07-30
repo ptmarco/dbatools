@@ -11,8 +11,10 @@ IF OBJECT_ID('sp_PersonalizedIndexOptimization.sql','P') IS NULL
 GO
 
 ALTER PROCEDURE dbo.sp_PersonalizedIndexOptimization
-	@object_id INT,
-	@index_id INT
+    @TargetDatabases   NVARCHAR(256)    = 'ALL_DATABASES,-dba_%'
+   ,@TargetFinishHour  SMALLINT	        = NULL -- formato 24h, exemplo para 20 para 20:00
+   ,@Indexes           NVARCHAR(1024)   = 'ALL_INDEXES'
+   ,@PrintOnly         BIT              = 0
 --WITH ENCRYPTION
 AS
 /*
@@ -65,7 +67,6 @@ SET NOEXEC OFF
 
 DECLARE @sql					NVARCHAR(max)
 		,@cores					SMALLINT
-		,@TargetFinishHour		SMALLINT		= NULL -- formato 24h, exemplo para 20 para 20:00
 		,@SecondsUntilFinish	INT
 
 SELECT	@cores = count(scheduler_id)
