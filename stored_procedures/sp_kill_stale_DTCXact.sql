@@ -11,7 +11,7 @@ IF OBJECT_ID('dbo.sp_kill_stale_DTCXact','P') IS NULL
 GO
 
 ALTER PROCEDURE dbo.sp_kill_stale_DTCXact
-	@hours_old SMALLINT = -1,
+	@hours_old SMALLINT = 1,
 	@dont_kill BIT = 0
 --WITH ENCRYPTION
 AS
@@ -33,7 +33,7 @@ Returns:
                 dm_tran_active_transactions and sys.syslock details for killed transactions for killed transactions
 Examples:
                 -- Only log, dont kill
-				EXEC sp_kill_stale_DTCXact @hours_old = -1 , @dont_kill = 1
+				EXEC sp_kill_stale_DTCXact @hours_old = 1 , @dont_kill = 1
 ====================================================================================================================
 Change History
 v1
@@ -60,7 +60,8 @@ SET QUOTED_IDENTIFIER ON
 SET NOEXEC OFF
 
 /*** Local Variables ***/
-DECLARE @req_transactionUOW NVARCHAR(MAX),
+DECLARE @req_transactionUOW NCHAR(36),
+		@kill NVARCHAR(MAX),
         @mail_profile SYSNAME,
         @recipients NVARCHAR(128),
         @body NVARCHAR(128)
@@ -109,8 +110,10 @@ BEGIN
         AND l.req_transactionUOW = @req_transactionUOW;
 	
 	-- Kill Transaction
-	IF @dont_kill = 0 
-		EXEC(N'KILL ' + @req_transactionUOW);
+	SELECT @kill = CONCAT(N'Kill ', quotename(@req_transactionUOW,''''))
+	--PRINT @kill
+	IF @dont_kill = 0
+		EXEC(@kill);
         
     -- Notify DBA
     SELECT @body = CONCAT(N'Transaction ', @req_transactionUOW, N' Killed')
