@@ -235,6 +235,7 @@ BEGIN TRY
                 ,@errormsg  SYSNAME
                 ,@profile	NVARCHAR(128) = NULL
                 ,@subject	NVARCHAR(128) = NULL
+                ,@body		NVARCHAR(999) = NULL
                 ;
         
         SELECT @BackupTypeDesc = CASE 
@@ -283,11 +284,17 @@ BEGIN TRY
             IF @profile IS NOT NULL
 				BEGIN
 					SELECT	@subject = @SubjectTag + N' ' + @@SERVERNAME + N' ' + @BackupTypeDesc + N' BACKUP for database [' + @dbname + 'N] is either MISSING or too OLD'
+							--,@query  = N'SELECT * FROM #missing_backup WHERE name = ''' + @dbName + N''' ORDER BY backup_finish_date DESC;'
+							,@body = N'Last successful' + @BackupType + N' backup for database ' + name + N' was  on ' + CAST(backup_finish_date AS NVARCHAR(64))
+					FROM	#missing_backup
+					WHERE	name = @dbName;
+					
 					EXEC msdb.dbo.sp_send_dbmail
 						@profile_name = @profile,
 						@recipients = @SendMailTo,
+                        --@query = @query,
 						@subject=@subject, 
-						@body=NULL;
+						@body=@body;
 				END
             
             FETCH NEXT FROM c INTO @dbName
@@ -316,9 +323,9 @@ EXEC dbo.sp_CheckForBackup
     ,@ExcludeSystemDatabases    = false
     ,@ExcludeCopyOnlyBackups    = false
     ,@RaiseError                = false
-    --,@SendMailTo				= N'marco.assis@kyndryl.com'
+    ,@SendMailTo				= N'marco.assis@kyndryl.com'
     ,@SubjectTag				= N'CIN - [WARNING]'
-    ,@DatabaseNameFilter        = '%'
+    ,@DatabaseNameFilter        = 'Cin%'
     ,@DatabaseNameExcludeFilter = 'dba_%'
 
 EXEC sp_readerrorlog 0,1,'backup'
