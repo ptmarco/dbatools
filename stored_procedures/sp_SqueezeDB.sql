@@ -4,6 +4,7 @@ SET CONCAT_NULL_YIELDS_NULL ON;
 SET ANSI_WARNINGS ON;
 SET NUMERIC_ROUNDABORT OFF;
 SET ARITHABORT ON;
+SET	NOEXEC OFF
 GO
 
 IF OBJECT_ID('sp_SqueezeDB','P') IS NULL 
@@ -11,10 +12,11 @@ IF OBJECT_ID('sp_SqueezeDB','P') IS NULL
 GO
 
 ALTER PROCEDURE dbo.sp_SqueezeDB
-	@databaseName           SYSNAME     = DB_NAME()
-    ,@type                  NVARCHAR(4) = N'LOG'
-    ,@LeaveFreeSpace_pct    INT         = 10
-    ,@MinimumGainMB         LARGEINT    = 100    
+	@DatabaseName           SYSNAME		=	NULL
+    ,@TargetType            NVARCHAR(4)	=	N'LOG'
+    ,@LeaveFreeSpace_pct    SMALLINT	=	10
+    ,@MinimumGainMB         BIGINT		=	256
+    ,@WhatIf				BIT			=	0
     
 --WITH ENCRYPTION
 AS
@@ -28,15 +30,16 @@ Tested On:      SQL Server 2012+
 Notes:
     For Data Files executes
         1)  DBCC SHRINKFILE NOTRUNCATE
-        2)  DBCC SHRINKFILE TRUNCATE
+        2)  DBCC SHRINKFILE TRUNCATE -  Yes, Fragmentations will go awire. This is the cost of bad storage mangement policys, deal with it ...
         3)  DBCC SHRINKFILE to Current_Free_Space + @LeaveFreeSpace_pct %
-    For Log Files
+    For Log Files (NOTRUNCATE is not an option)
         1)  DBCC SHRINKFILE to Current_Free_Space + @LeaveFreeSpace_pct %
 Parameters:
-    @databaseName           SYSNAME     = DB_NAME()
-    ,@type                  NVARCHAR(4) = N'LOG'
+     @DatabaseName          SYSNAME     = DB_NAME()
+    ,@TargetType            NVARCHAR(4) = N'LOG'
     ,@LeaveFreeSpace_pct    INT         = 10
     ,@MinimumGainMB         LARGEINT    = 100    
+    [ @WhatIf				BIT			= 1 ] optional
 Returns:
     
 Examples:
@@ -70,61 +73,79 @@ SET ANSI_NULLS ON
 SET QUOTED_IDENTIFIER ON
 SET NOEXEC OFF
 
-/**** User Parameters ****/
-
 /**** Local Variables ****/
+DECLARE  @sql		NVARCHAR(MAX)
 
-/**** Exit ****/
-RAISERROR(N'Oops! No, don''t just hit F5', 20, 1) WITH LOG;
-SET NOEXEC ON
+/**** Set Defaults for null parameters & Manipulate Parameters ****/
+SELECT	@DatabaseName	=	ISNULL(@DatabaseName, DB_NAME())
 
 /**** Main Code ****/
 
+-- Check if Database exists and is suitable for operation
+IF NOT EXISTS (
+	SELECT	1 
+	FROM	sys.databases 
+	WHERE	1=1
+		AND	name			= @databaseName 
+		AND state			= 0 -- ONLINE
+		AND is_read_only	= 0
+		)
+BEGIN
+	RAISERROR(N'Database does not exist or is offline / read only', 20, 1) WITH LOG;
+	SET NOEXEC ON
+END
+ELSE
+	PRINT	N'/*' + CHAR(13)
+			+ N'Shrinking Database:' + CHAR(9)
+			+ UPPER(@DatabaseName) + CHAR(13)
+			+ N'File type:' + CHAR(9) + CHAR(9) + CHAR(9)
+			+ UPPER(@TargetType)
+			+ CHAR(13)
+			+ N'Free Space Target:' + CHAR(9)
+			+ CAST(@LeaveFreeSpace_pct AS NVARCHAR(3)) + N'%'
+			+ CHAR(13)
+			+ N'Minimum gain' + CHAR(9) + CHAR(9) + CAST(@MinimumGainMB AS NVARCHAR(16)) + ' MB'
+			+ CHAR(13) + N'*/'
 
+DECLARE c CURSOR FAST_FORWARD FOR
+	SELECT	
+		N'USE ' + QUOTENAME(DB_NAME(database_id))
+		+ CHAR(13)
+        + CASE
+            WHEN @TargetType = 'ROWS' THEN 
+		+       N'DBCC SHRINKFILE(''' + name + ''',' + CAST(ROUND(size/128*(100-@LeaveFreeSpace_pct)/100,0) AS NVARCHAR(32)) + N',NOTRUNCATE);' + CHAR(13)
+            ELSE
+                N''
+            END
+        + N'DBCC SHRINKFILE(''' + name + ''',TRUNCATEONLY);'
+		+ CHAR(13) + N'GO'
+	FROM	master.sys.master_files
+	WHERE	1=1
+		AND	type_desc LIKE ISNULL(@TargetType,N'%')
+		AND	DB_NAME(database_id)= @databaseName
+		AND DB_NAME(database_id) NOT IN ('master','model','msd','tempdb','dba_database')
+		AND ROUND(size/128*(100-@LeaveFreeSpace_pct)/100,0) >= @MinimumGainMB
+OPEN c
 
+FETCH NEXT FROM c INTO @sql
+WHILE (@@FETCH_STATUS = 0)
+BEGIN
+	IF @WhatIf = 1 
+		EXEC(@sql)
+	ELSE
+		PRINT @sql;
+	FETCH NEXT FROM c INTO @sql
+END
 
-/*
-SUSER_NAME()
-*/
+CLOSE c
+DEALLOCATE c
 
+SET	NOEXEC OFF
+GO
 
-
-log so normal
-data 
-    2 truncateonly 
-    1 notruncate
-
--- Wasted Space from Offline Databases
-select mf.name, mf.physical_name, size from sys.master_files mf
-join sys.databases d
-	on d.database_id = mf.database_id
-WHERE d.state_desc = 'offline'
-USE master
-CREATE TABLE #FileSize
-(dbName NVARCHAR(128), 
-    FileName NVARCHAR(128), 
-    type_desc NVARCHAR(128),
-    CurrentSizeMB DECIMAL(10,2), 
-    FreeSpaceMB DECIMAL(10,2)
-);
-
--- Generate Shrink for All Databases
-INSERT INTO #FileSize(dbName, FileName, type_desc, CurrentSizeMB, FreeSpaceMB)
-exec sp_msforeachdb 
-'use [?]; 
- SELECT DB_NAME() AS DbName, 
-        name AS FileName, 
-        type_desc,
-        size/128.0 AS CurrentSizeMB,  
-        size/128.0 - CAST(FILEPROPERTY(name, ''SpaceUsed'') AS INT)/128.0 AS FreeSpaceMB
-FROM sys.database_files
-WHERE type IN (0,1);';
-    
-SELECT * 
-,'use ' + QUOTENAME(dbname) + ' DBCC SHRINKFILE (N''' + filename + ''' , ' + CAST(round((CurrentSizeMB*1.1),0) AS NVARCHAR(50)) + ', NOTRUNCATE)' "Shrink"
-FROM #FileSize
-WHERE dbName NOT IN ('distribution', 'master', 'model', 'msdb','tempdb')
-AND type_desc = 'LOG'
-ORDER BY FreeSpaceMB DESC
-    
-DROP TABLE #FileSize;
+EXEC dba_database.dbo.sp_SqueezeDB
+    @DatabaseName           = N'Colormix'
+    ,@TargetType            = N'ROWS'
+    ,@LeaveFreeSpace_pct    = 10
+    ,@MinimumGainMB         = 250
+GO
