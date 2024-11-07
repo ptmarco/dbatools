@@ -91,8 +91,8 @@ IF NOT EXISTS (
 		AND is_read_only	= 0
 		)
 BEGIN
-	RAISERROR(N'Database does not exist or is offline / read only', 20, 1) WITH LOG;
-	SET NOEXEC ON
+	RAISERROR(N'Specified database does not exist or is offline / read only', 20, 1) WITH LOG;
+	RETURN;
 END
 ELSE
 	PRINT	N'/*' + CHAR(13)
@@ -118,7 +118,6 @@ DECLARE c CURSOR FAST_FORWARD FOR
                 N''
             END
         + N'DBCC SHRINKFILE(''' + name + ''',TRUNCATEONLY);'
-		+ CHAR(13) + N'GO'
 	FROM	master.sys.master_files
 	WHERE	1=1
 		AND	type_desc LIKE ISNULL(@TargetType,N'%')
@@ -130,7 +129,7 @@ OPEN c
 FETCH NEXT FROM c INTO @sql
 WHILE (@@FETCH_STATUS = 0)
 BEGIN
-	IF @WhatIf = 1 
+	IF @WhatIf = 0 
 		EXEC(@sql)
 	ELSE
 		PRINT @sql;
@@ -139,13 +138,12 @@ END
 
 CLOSE c
 DEALLOCATE c
-
-SET	NOEXEC OFF
 GO
 
-EXEC dba_database.dbo.sp_SqueezeDB
-    @DatabaseName           = N'Colormix'
-    ,@TargetType            = N'ROWS'
-    ,@LeaveFreeSpace_pct    = 10
-    ,@MinimumGainMB         = 250
+
+EXEC dbo.sp_SqueezeDB
+    @DatabaseName           = N'PAY',
+    @TargetType            = N'ROWS',
+    @LeaveFreeSpace_pct    = 10,
+    @MinimumGainMB         = 250
 GO
