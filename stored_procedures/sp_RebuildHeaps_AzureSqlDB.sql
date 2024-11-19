@@ -1,3 +1,5 @@
+/********* NO LONGER NECESSARY **********/
+
 SET NOEXEC OFF
 
 IF OBJECT_ID('dbo.sp_RebuildHeaps_AzureSqlDB') IS NULL

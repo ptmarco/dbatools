@@ -33,9 +33,8 @@ Parameters:
 
 Examples:
 	
-	-- Only 1 database
+	-- Current Database
 	EXEC dba_database.dbo.sp_RebuildHeaps 
-		@DatabaseName = '<database name> | NULL for current database'
 		,@fragmentation_threshold = 30
 		,@forwarded_record_count_threshold = 0
 		,@max_heap_size_mb INT = 1000
@@ -44,7 +43,7 @@ Examples:
 		,@Rebuild = 0';
 	
 	
-	-- Running on ALL databases
+	-- ALL databases
 	DECLARE @sql NVARCHAR(MAX) = 
 	N'USE [?]; IF DB_ID() > 4
 	EXEC dba_database.dbo.sp_RebuildHeaps 
@@ -66,9 +65,12 @@ xx/12/23		Marco Assis		Initial Build
 05/02/24		Marco Assis		Fix missing schema
 05/02/24		Marco Assis		Add thrshold table size to prevent rebuilding very large tables
 ====================================================================================================================
-*/IF @DatabaseName IS NULL SELECT @DatabaseName = DB_NAME();
-DECLARE @tsql NVARCHAR(MAX) = N'USE ' + QUOTENAME(@DatabaseName) + ';' + CHAR(13) + 
-N'SET ANSI_NULLS ON;
+*/
+DECLARE @tsql NVARCHAR(MAX)
+IF @DatabaseName IS NOT NULL 
+    SELECT @tsql = N'USE ' + QUOTENAME(@DatabaseName) + ';' + CHAR(13), @DatabaseName = DB_NAME()
+SELECT @tsql = @tsql + N'
+SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
 SET ARITHABORT ON;
@@ -164,7 +166,7 @@ IF @Rebuild = 1
 			SELECT @StartTime = getdate();
 			EXEC(@sql)
 			SELECT @EndTime = getdate();
-			INSERT INTO dba_database..CommandLog (
+			INSERT INTO dbo.CommandLog (
 					DatabaseName
 					,SchemaName
 					,ObjectName
@@ -181,7 +183,7 @@ IF @Rebuild = 1
 					,@ObjectName
 					,'H'
 					,@sql
-					,'REBUILD HEAPS'
+					,'REBUILD_HEAPS'
 					,@StartTime
 					,@EndTime
 					,0
@@ -204,3 +206,5 @@ DROP TABLE #heaps
 --PRINT @tsql;
 EXEC(@tsql);
 END
+
+GO
