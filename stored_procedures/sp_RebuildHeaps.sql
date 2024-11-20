@@ -1,15 +1,10 @@
 SET ANSI_NULLS ON
-GO
-
 SET QUOTED_IDENTIFIER ON
 GO
 
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sp_RebuildHeaps]') AND type in (N'P', N'PC'))
-BEGIN
-EXEC dbo.sp_executesql @statement = N'CREATE PROCEDURE [dbo].[sp_RebuildHeaps] AS' 
-END
+    EXEC dbo.sp_executesql @statement = N'CREATE PROCEDURE [dbo].[sp_RebuildHeaps] AS' 
 GO
-
 
 ALTER PROCEDURE [dbo].[sp_RebuildHeaps]
 /* User Parameters */
@@ -21,23 +16,30 @@ ALTER PROCEDURE [dbo].[sp_RebuildHeaps]
     @logToCommandLog                            BIT     = 1,
     @Rebuild                                    BIT     = 0 -- 1 Will REBUILD all HEAPS with fragmentation > @fragmentation_threshold
 AS
+--WITH ENCRYPTION
 BEGIN
 /*
 ====================================================================================================================
-Author:            Marco Assis
+Author:         Marco Assis
 Create date:    01/2024
 Description:    Rebuild HEAPS with high    forwarded records
 ====================================================================================================================
 Change History
-Date               Author           Description    
-xx/12/23        Marco Assis        Initial Build
-05/02/24        Marco Assis        Fix missing schema
-05/02/24        Marco Assis        Add thrshold table size to prevent rebuilding very large tables
+Date            Author              Description    
+xx/12/23        Marco Assis         Initial Build
+05/02/24        Marco Assis         Fix missing schema
+05/02/24        Marco Assis         Add thrshold table size to prevent rebuilding very large tables
+20/11/24        Marco Assis         Add Azure SQL Database Compatibility
+                                    Temporarely Remove Logging capabilities
 ====================================================================================================================
 */
+DECLARE @tsql NVARCHAR(MAX)
 IF @DatabaseName IS NULL SELECT @DatabaseName = DB_NAME();
-DECLARE @tsql NVARCHAR(MAX) = N'USE ' + QUOTENAME(@DatabaseName) + ';' + CHAR(13) + 
-N'SET ANSI_NULLS ON;
+
+IF SERVERPROPERTY('EngineEdition') IN (1,2,3,4,8) -- Exclude Azure SQL Database, Synapse and Edge
+    SELECT @tsql = N'USE ' + QUOTENAME(@DatabaseName) + ';' + CHAR(13)
+
+SELECT @tsql = N'SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
 SET ARITHABORT ON;
@@ -62,7 +64,8 @@ DECLARE @sql NVARCHAR(MAX),
         @SchemaName SYSNAME,
         @ObjectName SYSNAME,
         @StartTime DATETIME2,
-        @EndTime DATETIME2;
+        @EndTime DATETIME2,
+		@ProcessStart DATETIME = GETDATE();
 
 -- Create Results temp tables
 IF OBJECT_ID(N''tempdb.dbo.##heaps_temp'',''U'') IS NOT NULL
@@ -128,12 +131,55 @@ IF @Rebuild = 1
   
   WHILE @@FETCH_STATUS = 0
    BEGIN
-    IF @logToCommandLog = 1
+    EXEC(@sql);
+    FETCH NEXT FROM [execute] INTO @SchemaName, @ObjectName,@sql;
+   END
+   CLOSE [execute]
+   DEALLOCATE [execute]
+ END
+ ELSE 
+    SELECT @@SERVERNAME [Server], DB_NAME() [DatabaseName], * FROM #heaps WHERE avg_fragmentation_in_percent > @fragmentation_threshold ORDER BY size_mb DESC;
+
+-- Cleanup
+DROP TABLE ##heaps_temp;
+DROP TABLE #heaps
+';
+
+--PRINT @tsql;
+EXEC(@tsql);
+END
+GO
+
+/*
+IF @logToCommandLog = 1
         BEGIN
-            SELECT @StartTime = getdate();
+            IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N''#CommandLog'') AND type in (N''U''))
+			BEGIN
+				CREATE TABLE #CommandLog](
+				  [ID] [int] IDENTITY(1,1) NOT NULL,
+				  [DatabaseName] [sysname] NULL,
+				  [SchemaName] [sysname] NULL,
+				  [ObjectName] [sysname] NULL,
+				  [ObjectType] [char](2) NULL,
+				  [IndexName] [sysname] NULL,
+				  [IndexType] [tinyint] NULL,
+				  [StatisticsName] [sysname] NULL,
+				  [PartitionNumber] [int] NULL,
+				  [ExtendedInfo] [xml] NULL,
+				  [Command] [nvarchar](max) NOT NULL,
+				  [CommandType] [nvarchar](60) NOT NULL,
+				  [StartTime] [datetime2](7) NOT NULL,
+				  [EndTime] [datetime2](7) NULL,
+				  [ErrorNumber] [int] NULL,
+				  [ErrorMessage] [nvarchar](max) NULL,
+				 CONSTRAINT [PK_CommandLog] PRIMARY KEY CLUSTERED ([ID] ASC)
+				 WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON)
+				)
+			END
+			SELECT @StartTime = getdate();
             EXEC(@sql)
             SELECT @EndTime = getdate();
-            INSERT INTO dba_database..CommandLog (
+            INSERT INTO #CommandLog (
                     DatabaseName
                     ,SchemaName
                     ,ObjectName
@@ -156,21 +202,11 @@ IF @Rebuild = 1
                     ,0
                     )
         END
-        ELSE EXEC(@sql);
-    FETCH NEXT FROM [execute] INTO @SchemaName, @ObjectName,@sql;
-   END
-   CLOSE [execute]
-   DEALLOCATE [execute]
- END
- ELSE 
-    SELECT * FROM #heaps WHERE avg_fragmentation_in_percent > @fragmentation_threshold ORDER BY size_mb DESC;
+        ELSE 
 
--- Cleanup
-DROP TABLE ##heaps_temp;
-DROP TABLE #heaps
-';
-
---PRINT @tsql;
-EXEC(@tsql);
-END
-GO
+-- Output Log
+SELECT	*
+FROM	#CommandLog
+WHERE	CommandType = N''CommandType''
+	AND	StartTime >= @ProcessStart
+*/
