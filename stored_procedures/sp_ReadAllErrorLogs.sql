@@ -19,7 +19,7 @@ ALTER PROCEDURE sp_ReadAllErrorLogs
    @DaysBack    TINYINT         = 0,
    @OutputTo    SYSNAME         = NULL, -- Output Full log file to object <schema.table>
                                         -- Either 3 part name or ## temp object. Example ##logs
-   @ExtraRows   INT             = 1     -- Shows this many log records before and after the line matching "SearchString"
+   @ExtraRows   INT             = 0     -- Shows this many log records before and after the line matching "SearchString"
                                         -- If there are multiple rows with the exact LogDate, "adjacent" becomes inaccurate ..still useful
 --WITH ENCRYPTION
 AS
