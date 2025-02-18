@@ -7,7 +7,7 @@ GO
 
 IF SERVERPROPERTY('EngineEdition') != 5
     SET NOEXEC ON;
-
+GO
 CREATE PROCEDURE dbo.sp_CloneUser_AzureSQLDB 
     @ReferenceUser SYSNAME = NULL
     ,@User SYSNAME = NULL

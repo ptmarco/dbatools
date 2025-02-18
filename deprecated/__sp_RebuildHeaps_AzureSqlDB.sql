@@ -15,8 +15,8 @@ ALTER PROCEDURE [dbo].[sp_RebuildHeaps]
     @max_heap_size_mb                           INT     = 1000,    -- Threshold to HEAP Rebuild, default 1GB
     @logToCommandLog                            BIT     = 1,
     @Rebuild                                    BIT     = 0 -- 1 Will REBUILD all HEAPS with fragmentation > @fragmentation_threshold
-AS
 --WITH ENCRYPTION
+AS
 BEGIN
 /*
 ====================================================================================================================
