@@ -43,11 +43,11 @@ Parameters:
 Returns:
     
 Examples:
-    EXEC sp_SqueezeDB 
-        @databaseName           = N'DBCliente'
-        ,@type                  = N'DATA'
-        ,@LeaveFreeSpace_pct    = 10
-        ,@MinimumGainMB         = 250
+    EXEC dbo.sp_SqueezeDB
+        @DatabaseName          = N'PAY',
+        @TargetType            = N'ROWS',
+        @LeaveFreeSpace_pct    = 10,
+        @MinimumGainMB         = 250
 ====================================================================================================================
 Change History
 v1
@@ -138,12 +138,4 @@ END
 
 CLOSE c
 DEALLOCATE c
-GO
-
-
-EXEC dbo.sp_SqueezeDB
-    @DatabaseName           = N'PAY',
-    @TargetType            = N'ROWS',
-    @LeaveFreeSpace_pct    = 10,
-    @MinimumGainMB         = 250
 GO
