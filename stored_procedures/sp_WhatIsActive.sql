@@ -8,6 +8,8 @@ Notes:
 Parameters:
 
 Examples:
+    EXEC sp_WhoIsActive @get_outer_command = 0, @show_system_spids = 0, @show_sleeping_spids = 1
+    EXEC sp_WhatIsActive @include_system = 0
 
 To Do:
     --plan
@@ -133,6 +135,3 @@ WHERE 1=1
     AND r.session_id > (CASE @include_system WHEN 0 THEN 50 ELSE 0 END)
 ORDER BY r.start_time ASC
 GO
-
-EXEC sp_WhoIsActive @get_outer_command = 0, @show_system_spids = 0, @show_sleeping_spids = 1
-EXEC sp_WhatIsActive @include_system = 0
