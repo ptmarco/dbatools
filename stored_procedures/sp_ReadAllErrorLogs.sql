@@ -13,10 +13,10 @@ GO
 ALTER PROCEDURE sp_ReadAllErrorLogs
    @From        DATETIME        = NULL,
    @To          DATETIME        = NULL,
-   @Help        TINYINT         = 0,
+   @Help        BIT             = 0,
    @Search1     NVARCHAR(255)   = NULL,
    @Search2     NVARCHAR(255)   = NULL,
-   @DaysBack    TINYINT         = 0,
+   @DaysBack    INT             = 0,
    @OutputTo    SYSNAME         = NULL, -- Output Full log file to object <schema.table>
                                         -- Either 3 part name or ## temp object. Example ##logs
    @ExtraRows   INT             = 0     -- Shows this many log records before and after the line matching "SearchString"
@@ -38,6 +38,7 @@ Date         Version    Author              Description
                                             https://sqljana.wordpress.com/2018/04/20/sql-server-a-more-flexible-xp_readerrorlog-that-reads-all-error-logs-including-archives/
 18/01/22    v1.1        Marco Assis         Add @help, soften parameters names, add @daysback
 26/11/24    V1.2        Marco Assis         Add @OutputTo to export full log to work with
+13/02/25    V1.21       Marco Assis         Change default value for @daysback + extra lines only before
 ---------------------------------------------------------------------------------------------------
 Example(s)
     -- Search "error" on he tlatest 10 log files
@@ -51,7 +52,7 @@ Example(s)
         @To        = '2021-10-31',
         @Search1   = 'error',
         @Search2   = '18732',
-        @ExtraRows = 2;
+        @ExtraRows = 0;
         
     -- Export log files to ##logs
     EXEC sp_ReadAllErrorLogs
@@ -233,7 +234,7 @@ GO
 PRINT 'sp_ReadAllErrorLogs Created'
 RETURN
 
--- Testing
+/* Testing
 
 IF OBJECT_ID('##Logs','U') IS NOT NULL
     DROP TABLE ##Logs;
@@ -244,3 +245,4 @@ EXEC sp_ReadAllErrorLogs
     @OutputTo = '##logs'
 
 SELECT * FROM ##logs;
+*/
