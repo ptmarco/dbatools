@@ -97,10 +97,11 @@ BEGIN
 	END
 
 	--DECLARE @sql NVARCHAR(2000) = N'';
+	DECLARE @bcktype NCHAR(1);
 
 	IF @type = 1
 	BEGIN
-		SELECT @backuptype = 
+		SELECT @bcktype = 
 			CASE UPPER(@backuptype)
 				WHEN 'LOG' THEN N'L'
 				WHEN 'FULL' THEN N'D'
@@ -110,11 +111,7 @@ BEGIN
 		SELECT 	'Type 1: Backup History for @daysback =' as [Type], 
 				@days as [Days], 
 				ISNULL(@database, N'-') as [Database], 
-				ISNULL(	CASE UPPER(@backuptype)
-							WHEN 'LOG' THEN N'L'
-							WHEN 'FULL' THEN N'D'
-							WHEN 'DIFF' THEN N'I'
-						END ,N'-') as [Backup Type];
+				ISNULL(UPPER(@backuptype),N'-') as [Backup Type];
 		SELECT 
 		CONVERT(CHAR(100), SERVERPROPERTY('Servername')) AS Server, 
 		msdb.dbo.backupset.database_name, 
@@ -151,7 +148,7 @@ BEGIN
 		ON msdb.dbo.backupmediafamily.media_set_id = msdb.dbo.backupset.media_set_id 
 		WHERE 	(CONVERT(datetime, msdb.dbo.backupset.backup_start_date, 102) >= GETDATE() - @days)
 				AND msdb.dbo.backupset.database_name LIKE ISNULL(@database,'%')
-				AND msdb..backupset.type LIKE ISNULL(@backuptype,'%')
+				AND msdb..backupset.type LIKE ISNULL(@bcktype,'%')
 		ORDER BY 
 		msdb.dbo.backupset.database_name, 
 		msdb.dbo.backupset.backup_start_date DESC,
