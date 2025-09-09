@@ -103,9 +103,10 @@ IF OBJECT_ID('sp_BaselinePerfmon','P') IS NULL
 GO
 
 ALTER PROCEDURE dbo.sp_BaselinePerfmon
-    @duration   INT             -- Execution Duration in minutes
-    ,@delay     INT     = 120   -- Delay in seconds between perfmon recordings
-    ,@retention INT     = 30    -- Days of history to keep
+    @duration   	INT         -- Execution Duration in minutes
+    ,@delay     	INT = 120   -- Delay in seconds between perfmon recordings
+    ,@retention 	INT = 30    -- Days of history to keep
+	,@RowsPerBatch 	INT	= 10000
 --WITH ENCRYPTION
 AS
 
@@ -140,9 +141,9 @@ SET ANSI_NULLS ON
 SET QUOTED_IDENTIFIER ON
 
 /* Local Variables */
-DECLARE @previous   BIGINT
-        ,@until     DATETIME = dateadd(MINUTE,@duration,getdate())
-        ,@now       DATETIME2;
+DECLARE @previous   	BIGINT
+        ,@until     	DATETIME 	= dateadd(MINUTE,@duration,getdate())
+        ,@now       	DATETIME2
 
 /* Main Code *****************************************************************************************************/
 
@@ -230,7 +231,10 @@ BEGIN
 END
 
 -- Purge old records
-DELETE FROM Baseline.perfmon
-    WHERE sysdate <= dateadd(day,(@retention*-1),getdate());
+WHILE (@@ROWCOUNT > 0)
+BEGIN
+	DELETE TOP (@RowsPerBatch) FROM Baseline.perfmon
+		WHERE sysdate <= dateadd(day,(@retention*-1),getdate());
+END
 GO
 
